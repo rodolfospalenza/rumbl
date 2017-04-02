@@ -3,7 +3,7 @@
   <div class="col-sm-7">
     <%= content_tag :div,
       id: "video",
-      data: [id: @video.id, player_id: player_id(@video)] do %>
+      data: [video_id: @video.id, player_id: player_id(@video)] do %>
     <% end %>
   </div>
 
