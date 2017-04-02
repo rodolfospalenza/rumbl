@@ -25,7 +25,7 @@ let Video = {
     let vidChannel = socket.channel(`videos:${videoId}`);
 
     postButton.addEventListener('click', event => {
-      let payload = {body: msgInput.value, ad: Player.getCurrentTime()};
+      let payload = {body: msgInput.value, at: Player.getCurrentTime()};
 
       vidChannel.
         push('new_annotation', payload).
@@ -34,13 +34,28 @@ let Video = {
       msgInput.value = '';
     });
 
+    msgContainer.addEventListener('click', event => {
+      event.preventDefault();
+
+      let seconds = event.target.getAttribute('data-seek') ||
+        event.target.parentNode.getAttribute('data-seek');
+
+      if (!seconds) {
+        return;
+      }
+
+      Player.seekTo(seconds);
+    });
+
     vidChannel.on('new_annotation', resp => {
       this.renderAnnotation(msgContainer, resp);
     });
 
     vidChannel.
       join().
-      receive('ok', resp => console.log('joined the video channel', resp)).
+      receive('ok', ({annotations}) => {
+        this.scheduleMessages(msgContainer, annotations);
+      }).
       receive('error', resp => console.log('join failed', resp));
   },
 
@@ -57,12 +72,41 @@ let Video = {
 
     template.innerHTML = `
       <a href="#" data-seek="${this.esc(at)}">
-        <b>${this.esc(user.username)}</b>: ${this.esc(body)}
+      [${this.formatTime(at)}]
+      <b>${this.esc(user.username)}</b>: ${this.esc(body)}
       </a>
       `;
 
     msgContainer.appendChild(template);
     msgContainer.scrollTop = msgContainer.scrollHeight;
+  },
+
+  scheduleMessages(msgContainer, annotations) {
+    setTimeout(() => {
+      let ctime     = Player.getCurrentTime();
+      let remaining = this.renderAtTime(annotations, ctime, msgContainer);
+
+      this.scheduleMessages(msgContainer, remaining);
+    }, 1000);
+  },
+
+  renderAtTime(annotations, seconds, msgContainer) {
+    return annotations.filter(ann => {
+      if(ann.at > seconds) {
+        return true
+      } else {
+        this.renderAnnotation(msgContainer, ann);
+        return false
+      }
+    });
+  },
+
+  formatTime(at) {
+    let date = new Date(null);
+
+    date.setSeconds(at / 1000);
+
+    return date.toISOString().substr(14, 5);
   }
 }
 
